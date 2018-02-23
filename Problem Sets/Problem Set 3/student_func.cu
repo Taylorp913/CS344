@@ -80,6 +80,39 @@
 */
 
 #include "utils.h"
+#include "stdio.h"
+
+__global__ void shmem_reduce_kernel(float * d_out, const float * const d_in, bool is_max)
+{
+  // sdata is allocated in the kernel call: 3rd arg to <<<b, t, shmem>>>
+  extern __shared__ float sdata[];
+
+  int myId = threadIdx.x + blockDim.x * blockIdx.x;
+  int tid = threadIdx.x;
+
+  // load shared mem from global mem
+  sdata[tid] = d_in[myId];
+  __syncthreads();            // make sure entire block is loaded!
+
+  // do reduction in shared mem
+  for (unsigned int s = blockDim.x / 2; s > 0; s >>= 1)
+  {
+    if (tid < s)
+    {
+      if (is_max)
+        sdata[tid] = max(sdata[tid], sdata[tid + s]);
+      else
+        sdata[tid] = min(sdata[tid], sdata[tid + s]);
+    }
+    __syncthreads();        // make sure all adds at one stage are done!
+  }
+
+  // only thread 0 writes result for this block back to global mem
+  if (tid == 0)
+  {
+    d_out[blockIdx.x] = sdata[0];
+  }
+}
 
 void your_histogram_and_prefixsum(const float* const d_logLuminance,
                                   unsigned int* const d_cdf,
@@ -100,5 +133,58 @@ void your_histogram_and_prefixsum(const float* const d_logLuminance,
        the cumulative distribution of luminance values (this should go in the
        incoming d_cdf pointer which already has been allocated for you)       */
 
+       float i = 1;//*d_logLuminance;
+       unsigned int j = 1;//*d_cdf;
+  printf("look at me go\n");
+  printf(" d_logLuminance = %f\n d_cdf = %u\n &min_logLum = %f\n &max_logLum = %f\n numRows = %lu\n numCols = %lu\n numBins = %lu\n",
+          i,
+          j,
+          min_logLum,
+          max_logLum,
+          numRows,
+          numCols,
+          numBins
+        );
 
+        for(int k = 0; k<10;k++){
+          printf("%d\t",d_logLuminance);
+        }
+
+  const int m = 1 << 10;
+  int blocks = ceil((float)numCols * numRows / m);
+  printf("\n\n%d\n",m);
+  printf("blocks = %d\n",blocks);
+
+  //allocate mamory
+  float *d_intermediate; // should not modify d_in
+  checkCudaErrors(cudaMalloc(&d_intermediate, sizeof(float)* blocks)); // store max and min
+  float *d_min, *d_max;
+  checkCudaErrors(cudaMalloc((void **)&d_min, sizeof(float)));
+  checkCudaErrors(cudaMalloc((void **)&d_max, sizeof(float)));
+
+  shmem_reduce_kernel <<<blocks, m, m * sizeof(float)>>>(d_intermediate, d_logLuminance, true);
+  shmem_reduce_kernel <<<1, blocks, blocks * sizeof(float) >>>(d_max, d_intermediate, true);
+  shmem_reduce_kernel <<<blocks, m, m * sizeof(float) >>>(d_intermediate, d_logLuminance, false);
+  shmem_reduce_kernel <<<1, blocks, blocks * sizeof(float) >>>(d_min, d_intermediate, false);
+  checkCudaErrors(cudaMemcpy(&min_logLum, d_min, sizeof(float), cudaMemcpyDeviceToHost));
+  checkCudaErrors(cudaMemcpy(&max_logLum, d_max, sizeof(float), cudaMemcpyDeviceToHost));
+
+  checkCudaErrors(cudaFree(d_intermediate));
+  checkCudaErrors(cudaFree(d_min));
+  checkCudaErrors(cudaFree(d_max));
+
+  printf(" max= %f\n min = %f\n",
+  max_logLum,
+  min_logLum
+  );
+
+  //2) Get the range
+  float logLuminance_range = max_logLum - min_logLum;
+  printf(" range= %f\n",logLuminance_range );
+
+  //3)Get histogram
+  //bin = (lum[i] - lumMin) / lumRange * numBins
+  checkCudaErrors(cudaMemset(d_cdf, 0, sizeof(unsigned int)* numBins));
+   
+  printf("\n\n");
 }
