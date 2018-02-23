@@ -25,7 +25,7 @@
 //I = .299f * R + .587f * G + .114f * B
 
 //Notice the trailing f's on the numbers which indicate that they are 
-//single precision floating point constants and not double precision
+//single precision floating point constamatlabnts and not double precision
 //constants.
 
 //You should fill in the kernel as well as set the block and grid sizes
@@ -50,6 +50,15 @@ void rgba_to_greyscale(const uchar4* const rgbaImage,
   //First create a mapping from the 2D block and grid locations
   //to an absolute 2D location in the image, then use that to
   //calculate a 1D offset
+
+  int col = threadIdx.x;
+  int row = blockIdx.x;
+  int idx = col+row*numCols;
+  int R = rgbaImage[idx].x;
+  int G = rgbaImage[idx].y;
+  int B = rgbaImage[idx].z;
+  greyImage[idx] = 0.587f*G + 0.114f*B;//0.299f*R + 0.587f*G + 0.114f*B;
+  
 }
 
 void your_rgba_to_greyscale(const uchar4 * const h_rgbaImage, uchar4 * const d_rgbaImage,
@@ -57,8 +66,8 @@ void your_rgba_to_greyscale(const uchar4 * const h_rgbaImage, uchar4 * const d_r
 {
   //You must fill in the correct sizes for the blockSize and gridSize
   //currently only one block with one thread is being launched
-  const dim3 blockSize(1, 1, 1);  //TODO
-  const dim3 gridSize( 1, 1, 1);  //TODO
+  const dim3 blockSize(numCols, 1, 1);  //TODO
+  const dim3 gridSize( numRows, 1, 1);  //TODO
   rgba_to_greyscale<<<gridSize, blockSize>>>(d_rgbaImage, d_greyImage, numRows, numCols);
   
   cudaDeviceSynchronize(); checkCudaErrors(cudaGetLastError());

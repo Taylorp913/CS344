@@ -1,0 +1,26 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "make prj2 and run",
+            "type": "shell",
+            "command": "make -C Problem\\ Set\\ 2/ && ./Problem\\ Set\\ 2/HW2 Problem\\ Set\\ 2/cinque_terre_small.jpg"
+        },
+        {
+            "label": "make prj1 and run",
+            "type": "shell",
+            "command": "make -C Problem\\ Set\\ 1/ && ./Problem\\ Set\\ 1/HW1 Problem\\ Set\\ 1/cinque_terre_small.jpg"
+        },
+        {
+            "label": "make prj3 and run",
+            "type": "shell",
+            "command": "make -C Problem\\ Set\\ 3/ && echo running && ./Problem\\ Set\\ 3/HW3 Problem\\ Set\\ 3/memorial_raw.png",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        }
+    ]
+}
